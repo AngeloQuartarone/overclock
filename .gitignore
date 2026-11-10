@@ -1,0 +1,10 @@
+# database e log del server locale (account, password hashate, partite)
+data/
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+__pycache__/
+*.pyc
+.DS_Store

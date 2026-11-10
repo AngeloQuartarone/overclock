@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Overclock</title>
+  <meta name="description" content="Sei tu il clock di un processore in pixel art: tocca quando i bit sono arrivati ai registri, prima che il chip si scaldi troppo.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap">
+  <style>
+    :root {
+      --bg: #0a0f24; --ink: #05081a; --panel: rgba(10, 15, 36, 0.93); --line: #2b3264; --raise: #141b3d;
+      --text: #e8ebff; --dim: #8f99d4; --gold: #ffd23a; --orange: #ff8a2a; --green: #7dff6a; --cyan: #3fd6ff; --red: #ff5566;
+    }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); overscroll-behavior: none; }
+    #scene { position: fixed; inset: 0; overflow: hidden; touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+    #scene canvas { position: absolute; left: 0; top: 0; image-rendering: crisp-edges; image-rendering: pixelated; }
+    #ui { pointer-events: none; }
+    #veil { position: fixed; inset: 0; background: var(--bg); pointer-events: none; transition: opacity 1.2s ease; }
+    #veil.gone { opacity: 0; }
+
+    /* ---------- menu ---------- */
+    #menu {
+      position: fixed; inset: 0; display: flex; padding: 16px; box-sizing: border-box; overflow-y: auto; touch-action: pan-y;
+      font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 15px; line-height: 1.4; color: var(--text);
+      -webkit-tap-highlight-color: transparent;
+    }
+    #menu[hidden] { display: none; }
+    #menu { scrollbar-color: var(--line) transparent; scrollbar-width: thin; }
+    .panel {
+      width: 100%; max-width: 440px; margin: auto; padding: 18px 18px 14px; box-sizing: border-box;
+      background: var(--panel); border: 3px solid var(--line); box-shadow: 0 0 0 3px var(--ink), 8px 8px 0 3px var(--ink);
+    }
+    .head { display: flex; justify-content: center; margin: 4px 0 12px; }
+    .head canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    #menu p { margin: 8px 0; }
+    #menu h3 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin: 16px 0 6px; }
+    .tag { text-align: center; color: var(--dim); margin-top: -4px !important; }
+    .who { text-align: center; }
+    .center { text-align: center; }
+    .note { color: var(--dim); font-size: 14px; }
+    .err { color: var(--red); font-size: 14px; min-height: 0; }
+    .err:empty { display: none; }
+    .ok { color: var(--green); }
+    .sub { color: var(--dim); margin-top: -6px !important; }
+    .foot { text-align: center; color: var(--dim); font-size: 13px; margin-top: 14px !important; opacity: .8; }
+
+    .btn {
+      display: block; width: 100%; box-sizing: border-box; margin: 8px 0; padding: 10px 12px;
+      font: inherit; font-size: 15px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; text-align: center; color: var(--text);
+      background: var(--raise); border: 3px solid var(--line); border-radius: 0; box-shadow: 0 4px 0 var(--ink); cursor: pointer;
+    }
+    .btn:hover, .btn:focus-visible { border-color: var(--gold); color: var(--gold); outline: none; }
+    .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--ink); }
+    .btn.primary { background: var(--orange); border-color: var(--orange); color: var(--ink); }
+    .btn.primary:hover, .btn.primary:focus-visible { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+    .btn.ghost { background: transparent; box-shadow: none; color: var(--dim); }
+    .btn.sm { font-size: 13px; padding: 8px 10px; margin: 0; }
+    .btn[disabled] { opacity: .45; cursor: default; transform: none; }
+    .btn[hidden] { display: none; }
+    .btn.card { text-align: left; }
+    .btn.card .title { display: block; }
+    .btn.card small { display: block; font-size: 13px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--dim); margin-top: 2px; }
+    .btn.card:hover small, .btn.card:focus-visible small { color: var(--text); }
+    .btn.card .rec { color: var(--cyan); }
+    .btn.card .rec:empty { display: none; }
+    .row { display: flex; gap: 8px; align-items: stretch; }
+    .row > * { flex: 1; min-width: 0; }
+    .row > .btn.sm { flex: 0 0 auto; width: auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+    .grid .btn.sm { letter-spacing: .02em; padding: 8px 4px; }
+
+    .link { background: none; border: 0; padding: 0; font: inherit; color: var(--cyan); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    .link:hover, .link:focus-visible { color: var(--gold); outline: none; }
+
+    .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 0 0 8px; }
+    .tab { flex: 1 1 auto; font: inherit; font-size: 13px; color: var(--dim); background: transparent; border: 2px solid var(--line); border-radius: 0; padding: 6px 6px; cursor: pointer; }
+    .tab:hover, .tab:focus-visible { color: var(--gold); border-color: var(--gold); outline: none; }
+    .tab[aria-selected="true"] { color: var(--ink); background: var(--cyan); border-color: var(--cyan); }
+    .tabs.small .tab { font-size: 12px; padding: 4px 6px; }
+
+    .field { display: block; margin: 10px 0; }
+    .field span { display: block; font-size: 14px; color: var(--dim); margin-bottom: 4px; }
+    #menu input {
+      width: 100%; box-sizing: border-box; padding: 8px 10px; font: inherit; font-size: 17px; color: var(--text);
+      background: var(--ink); border: 3px solid var(--line); border-radius: 0;
+    }
+    #menu input:focus { outline: none; border-color: var(--cyan); }
+    #code { text-transform: uppercase; letter-spacing: .2em; }
+    .share { margin: 10px 0; }
+    .share span { display: block; font-size: 14px; color: var(--dim); margin-bottom: 4px; }
+    .share b { color: var(--gold); letter-spacing: .1em; }
+    .share input { font-size: 13px !important; }
+    .qr { width: min(240px, 72%); margin: 12px auto; background: #fff; border: 3px solid var(--line); box-shadow: 0 0 0 3px var(--ink); }
+    .qr.sm { width: min(170px, 55%); }
+    .qr svg { display: block; width: 100%; height: auto; }
+
+    table.board { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .board td { padding: 5px 4px; border-bottom: 2px solid var(--raise); vertical-align: baseline; }
+    .board .pos { width: 2em; color: var(--dim); }
+    .board tr:nth-child(-n+3) .pos { color: var(--gold); }
+    .board .val { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .board .dim { color: var(--dim); font-size: 13px; }
+    .board tr.me td, .board tr.me .link { color: var(--green); }
+    .board th { font-size: 12px; font-weight: 600; color: var(--dim); text-align: right; padding: 2px 4px 4px; }
+    .board td small { display: block; font-size: 11px; color: var(--dim); font-weight: 400; }
+    .records td { vertical-align: top; }
+    .records td.val { font-size: 13px; }
+
+    .list { list-style: none; margin: 0; padding: 0; }
+    .item {
+      display: block; width: 100%; text-align: left; margin: 0 0 6px; padding: 8px 10px; font: inherit; color: var(--text);
+      background: var(--raise); border: 2px solid var(--line); border-radius: 0; cursor: pointer;
+    }
+    .item:hover, .item:focus-visible { border-color: var(--gold); outline: none; }
+    .item b { color: var(--gold); letter-spacing: .1em; }
+    .item span { color: var(--text); }
+    .item small { display: block; color: var(--dim); font-size: 13px; }
+
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 10px 0; }
+    .stat b { display: block; font-size: 20px; font-weight: 600; }
+    .stat span { font-size: 13px; color: var(--dim); }
+    .big { text-align: center; font-size: 38px; font-weight: 700; line-height: 1.1; margin: 6px 0 4px; color: var(--gold); }
+    .big small { display: block; font-size: 14px; font-weight: 400; color: var(--dim); }
+    .save { min-height: 1.4em; text-align: center; font-size: 14px; }
+
+    .prose { font-size: 14px; }
+    .prose ul { margin: 6px 0; padding-left: 18px; }
+    .prose li { margin: 4px 0; }
+    .prose .g { color: var(--green); } .prose .r { color: var(--red); } .prose .c { color: var(--cyan); }
+
+    /* ---------- se il gioco non parte ---------- */
+    #oops {
+      position: fixed; inset: 0; display: flex; padding: 16px; box-sizing: border-box; overflow-y: auto;
+      font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 15px; line-height: 1.4; color: var(--text);
+    }
+    #oops[hidden] { display: none; }
+    #oops p { margin: 8px 0; }
+    #oops ul { margin: 8px 0 12px; padding-left: 18px; font-size: 14px; }
+    #oops li { margin: 4px 0; overflow-wrap: anywhere; }
+    #oops .ok { color: var(--green); }
+    #oops .ko { color: var(--red); }
+
+    @media (max-width: 380px) {
+      #menu { padding: 10px; }
+      .panel { padding: 14px 12px 10px; }
+      .btn { font-size: 14px; padding: 9px 10px; }
+      .big { font-size: 34px; }
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="scene" role="application" aria-label="Overclock: tocca o premi spazio per dare il colpo di clock">
+    <canvas id="gl"></canvas>
+    <canvas id="ui"></canvas>
+  </div>
+  <div id="menu" hidden></div>
+  <div id="veil"></div>
+  <div id="oops" role="alert" hidden>
+    <div class="panel">
+      <p><b>Il gioco non è partito su questo dispositivo.</b></p>
+      <p id="oops-why" class="note"></p>
+      <ul id="oops-checks"></ul>
+      <p class="note">Il gioco scarica Three.js da internet: il dispositivo deve essere sulla stessa rete del server e avere anche accesso a internet.</p>
+      <button class="btn primary" type="button" onclick="location.reload()">Riprova</button>
+    </div>
+  </div>
+  <script>
+    // Se il gioco non parte (niente internet per Three.js, browser vecchio…) lo si dice, invece di lasciare lo schermo vuoto.
+    (function () {
+      var veil = document.getElementById('veil'), box = document.getElementById('oops'), done = false;
+      function started() { return veil.classList.contains('gone'); }
+      function check(label, url, opts) {
+        var li = document.createElement('li');
+        li.textContent = label + ': controllo…';
+        document.getElementById('oops-checks').appendChild(li);
+        fetch(url, opts).then(function (r) {
+          li.innerHTML = '';
+          li.append(label + ': ', Object.assign(document.createElement('span'), r.ok ? { className: 'ok', textContent: 'ok' } : { className: 'ko', textContent: 'errore ' + r.status }));
+        }, function (e) {
+          li.innerHTML = '';
+          li.append(label + ': ', Object.assign(document.createElement('span'), { className: 'ko', textContent: 'non raggiungibile (' + ((e && e.message) || e) + ')' }));
+        });
+      }
+      window.overclockFail = function (why) {
+        if (done || started()) return;
+        done = true;
+        document.getElementById('oops-why').textContent = why;
+        box.hidden = false;
+        check('Server del gioco', 'api/me', { cache: 'no-store' });
+        check('Three.js (cdn.jsdelivr.net)', 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js', { method: 'HEAD', cache: 'no-store' });
+      };
+      new MutationObserver(function () { if (started()) box.hidden = true; }).observe(veil, { attributes: true });   // partito in ritardo: via il pannello
+      if (window.HTMLScriptElement && HTMLScriptElement.supports && !HTMLScriptElement.supports('importmap')) overclockFail('Questo browser è troppo vecchio per il gioco: aggiornalo o prova con un altro.');
+      window.addEventListener('error', function (e) { if (e.message) overclockFail('Errore: ' + e.message); });
+      setTimeout(function () { overclockFail('Il gioco non è partito entro 20 secondi.'); }, 20000);
+    })();
+  </script>
+  <script type="module" src="js/main.js" onerror="overclockFail('Non sono riuscito a scaricare tutti i file del gioco.')"></script>
+</body>
+</html>
