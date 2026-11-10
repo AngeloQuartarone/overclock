@@ -5,14 +5,15 @@
 // la STORE 4 (IF ID EX MEM). Il ritmo diventa un pattern: un colpo per passo, e passi di durata diversa.
 // Il PC ha un incrementatore suo, come in molti processori veri (la ALU resta una sola per i calcoli).
 import { makeRoute, createLayout, spineClock } from './route.js';
+import { t, dec } from './i18n.js';
 import { OP, OPS, encode, decode, alu, makeProgram } from './isa.js';
 
 export const STATES = ['IF', 'ID', 'EX', 'MEM', 'WB'];
 export const meta = {
-  id: 'multiciclo', name: 'Multi-ciclo', short: 'Multi',
-  tag: 'Un passo per colpo: ogni istruzione ha il suo ritmo.',
-  desc: 'Ogni istruzione è divisa in passi, uno per colpo: 4 per le operazioni, 5 per la LOAD, 4 per la STORE. Una sola ALU e una sola memoria, riusate a ogni passo.',
-  howto: 'un colpo per ogni passo dell\'istruzione (4 per le operazioni, 5 per la LOAD, 4 per la STORE): le spie della macchina a stati, sull\'unità di controllo, dicono quali passi restano.',
+  id: 'multiciclo', name: t('proc.multiciclo'), short: t('proc.multiciclo.short'),
+  tag: t('proc.multiciclo.tag'),
+  desc: t('proc.multiciclo.desc'),
+  howto: t('proc.multiciclo.howto'),
   stages: STATES,
   chord: 'final',                                                   // l'accordo si chiude solo all'ultimo passo dell'istruzione
   look: {
@@ -276,7 +277,7 @@ export function spots() {
 // alla fine: quanti colpi ci sono voluti, in media, per ogni istruzione
 export function results(x) {
   if (!x.retired) return {};
-  return { more: [[(x.cycles / x.retired).toFixed(2).replace('.', ','), 'colpi per istruzione (CPI)']] };
+  return { more: [[dec(x.cycles / x.retired, 2), t('proc.multiciclo.cpi')]] };
 }
 
 // ---------- un passo: cosa parte dopo il fronte, e quando arriva ----------

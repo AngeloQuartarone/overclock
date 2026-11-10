@@ -1,13 +1,22 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <title>Overclock</title>
-  <meta name="description" content="Sei tu il clock di un processore in pixel art: tocca quando i bit sono arrivati ai registri, prima che il chip si scaldi troppo.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap">
+  <meta name="description" content="Be the clock of a pixel-art processor: tap when the bits reach the registers, before the chip overheats.">
+  <meta name="theme-color" content="#0a0f24">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Overclock">
+  <meta name="referrer" content="no-referrer">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="vendor/fonts/plex-mono.css">
   <style>
     :root {
       --bg: #0a0f24; --ink: #05081a; --panel: rgba(10, 15, 36, 0.93); --line: #2b3264; --raise: #141b3d;
@@ -22,7 +31,7 @@
 
     /* ---------- menu ---------- */
     #menu {
-      position: fixed; inset: 0; display: flex; padding: 16px; box-sizing: border-box; overflow-y: auto; touch-action: pan-y;
+      position: fixed; inset: 0; display: flex; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); box-sizing: border-box; overflow-y: auto; touch-action: pan-y;
       font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 15px; line-height: 1.4; color: var(--text);
       -webkit-tap-highlight-color: transparent;
     }
@@ -58,7 +67,7 @@
     .btn.primary:hover, .btn.primary:focus-visible { background: var(--gold); border-color: var(--gold); color: var(--ink); }
     .btn.ghost { background: transparent; box-shadow: none; color: var(--dim); }
     .btn.sm { font-size: 13px; padding: 8px 10px; margin: 0; }
-    .btn[disabled] { opacity: .45; cursor: default; transform: none; }
+    .btn[disabled] { opacity: .45; cursor: default; transform: none; pointer-events: none; }
     .btn[hidden] { display: none; }
     .btn.card { text-align: left; }
     .btn.card .title { display: block; }
@@ -71,6 +80,11 @@
     .row > .btn.sm { flex: 0 0 auto; width: auto; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
     .grid .btn.sm { letter-spacing: .02em; padding: 8px 4px; }
+
+    label.btn.off { opacity: .45; pointer-events: none; }
+    #menu a { color: var(--cyan); text-underline-offset: 3px; }
+    #menu a:hover, #menu a:focus-visible { color: var(--gold); }
+    #menu code { font: inherit; color: var(--gold); }
 
     .link { background: none; border: 0; padding: 0; font: inherit; color: var(--cyan); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
     .link:hover, .link:focus-visible { color: var(--gold); outline: none; }
@@ -153,14 +167,14 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      "three": "./vendor/three/build/three.module.js",
+      "three/addons/": "./vendor/three/examples/jsm/"
     }
   }
   </script>
 </head>
 <body>
-  <div id="scene" role="application" aria-label="Overclock: tocca o premi spazio per dare il colpo di clock">
+  <div id="scene" role="application" aria-label="Overclock">
     <canvas id="gl"></canvas>
     <canvas id="ui"></canvas>
   </div>
@@ -168,44 +182,14 @@
   <div id="veil"></div>
   <div id="oops" role="alert" hidden>
     <div class="panel">
-      <p><b>Il gioco non è partito su questo dispositivo.</b></p>
+      <p><b id="oops-title"></b></p>
       <p id="oops-why" class="note"></p>
       <ul id="oops-checks"></ul>
-      <p class="note">Il gioco scarica Three.js da internet: il dispositivo deve essere sulla stessa rete del server e avere anche accesso a internet.</p>
-      <button class="btn primary" type="button" onclick="location.reload()">Riprova</button>
+      <p id="oops-note" class="note"></p>
+      <button id="oops-retry" class="btn primary" type="button"></button>
     </div>
   </div>
-  <script>
-    // Se il gioco non parte (niente internet per Three.js, browser vecchio…) lo si dice, invece di lasciare lo schermo vuoto.
-    (function () {
-      var veil = document.getElementById('veil'), box = document.getElementById('oops'), done = false;
-      function started() { return veil.classList.contains('gone'); }
-      function check(label, url, opts) {
-        var li = document.createElement('li');
-        li.textContent = label + ': controllo…';
-        document.getElementById('oops-checks').appendChild(li);
-        fetch(url, opts).then(function (r) {
-          li.innerHTML = '';
-          li.append(label + ': ', Object.assign(document.createElement('span'), r.ok ? { className: 'ok', textContent: 'ok' } : { className: 'ko', textContent: 'errore ' + r.status }));
-        }, function (e) {
-          li.innerHTML = '';
-          li.append(label + ': ', Object.assign(document.createElement('span'), { className: 'ko', textContent: 'non raggiungibile (' + ((e && e.message) || e) + ')' }));
-        });
-      }
-      window.overclockFail = function (why) {
-        if (done || started()) return;
-        done = true;
-        document.getElementById('oops-why').textContent = why;
-        box.hidden = false;
-        check('Server del gioco', 'api/me', { cache: 'no-store' });
-        check('Three.js (cdn.jsdelivr.net)', 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js', { method: 'HEAD', cache: 'no-store' });
-      };
-      new MutationObserver(function () { if (started()) box.hidden = true; }).observe(veil, { attributes: true });   // partito in ritardo: via il pannello
-      if (window.HTMLScriptElement && HTMLScriptElement.supports && !HTMLScriptElement.supports('importmap')) overclockFail('Questo browser è troppo vecchio per il gioco: aggiornalo o prova con un altro.');
-      window.addEventListener('error', function (e) { if (e.message) overclockFail('Errore: ' + e.message); });
-      setTimeout(function () { overclockFail('Il gioco non è partito entro 20 secondi.'); }, 20000);
-    })();
-  </script>
-  <script type="module" src="js/main.js" onerror="overclockFail('Non sono riuscito a scaricare tutti i file del gioco.')"></script>
+  <script type="module" src="js/main.js" id="main-js"></script>
+  <script src="js/boot.js"></script>
 </body>
 </html>

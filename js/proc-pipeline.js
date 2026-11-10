@@ -3,12 +3,13 @@
 // si tocca quando tutte le file hanno ricevuto i loro bit.
 // Qui c'è tutto quello che la distingue: la geometria del core, il processore simulato e i tempi dei bit.
 import { makeRoute, createLayout, spineClock } from './route.js';
+import { t } from './i18n.js';
 import { OP, OPS, encode, decode, writesReg, alu, makeProgram } from './isa.js';
 
 export const meta = {
-  id: 'pipeline', name: 'Pipeline', short: 'Pipeline',
-  tag: 'Cinque istruzioni insieme, una per stadio.',
-  desc: 'Tra uno stadio e l\'altro c\'è una fila di latch: tocca quando sono tutte verdi. Il processore originale.',
+  id: 'pipeline', name: t('proc.pipeline'), short: t('proc.pipeline.short'),
+  tag: t('proc.pipeline.tag'),
+  desc: t('proc.pipeline.desc'),
   stages: ['IF', 'ID', 'EX', 'MEM', 'WB'],
   look: { pkg: 'qfp' },
   freq: { unit: 'GHZ', k: 1.6 },

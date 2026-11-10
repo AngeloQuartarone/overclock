@@ -4,13 +4,14 @@
 // Per questo è lento: il periodo è la somma di tutti gli stadi, e in un chip vero il clock è fisso e tarato
 // sull'istruzione più lenta (la LOAD). Qui il clock lo dai tu, e puoi accorciarlo quando l'istruzione è veloce.
 import { makeRoute, createLayout, spineClock } from './route.js';
+import { t, dec } from './i18n.js';
 import { OP, OPS, encode, writesReg, alu, makeProgram } from './isa.js';
 
 export const meta = {
-  id: 'singolo', name: 'Ciclo singolo', short: 'Singolo',
-  tag: 'Un\'istruzione intera per colpo: lento, ma si legge benissimo.',
-  desc: 'Non ci sono registri tra gli stadi: a ogni colpo un\'onda sola attraversa tutto il chip. Tocca quando arriva ai registri.',
-  howto: 'un\'onda sola per colpo, che attraversa tutto il chip: tocca quando arriva al registro che viene scritto (o alla memoria, per la STORE).',
+  id: 'singolo', name: t('proc.singolo'), short: t('proc.singolo.short'),
+  tag: t('proc.singolo.tag'),
+  desc: t('proc.singolo.desc'),
+  howto: t('proc.singolo.howto'),
   stages: ['IF', 'ID', 'EX', 'MEM', 'WB'],
   look: {
     pkg: 'dip', pins: 20, ring: '#e8b54a',
@@ -237,10 +238,9 @@ export function spots() {
 // alla fine della partita: quanto ci avrebbe messo un clock fisso, tarato sul caso peggiore
 export function results(x) {
   if (x.cycles < 3 || !x.worst || !x.span) return {};
-  const dec = v => v.toFixed(1).replace('.', ',');
   const fixed = x.cycles * x.worst, gain = Math.round((1 - x.span / fixed) * 100);
   return {
-    notes: [`Con un clock fisso, tarato sull'istruzione più lenta che hai incontrato (${dec(x.worst)} s a colpo), quei ${x.cycles} colpi avrebbero richiesto ${dec(fixed)} s: il tuo clock ci ha messo ${dec(x.span)} s${gain > 0 ? `, il ${gain}% in meno` : ''}.`],
+    notes: [t('proc.singolo.note', { worst: dec(x.worst), cycles: x.cycles, fixed: dec(fixed), span: dec(x.span), gain: gain > 0 ? t('proc.singolo.gain', { g: gain }) : '' })],
   };
 }
 

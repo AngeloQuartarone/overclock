@@ -6,14 +6,15 @@
 // nel framebuffer, sul chip. Otto righe fanno un'immagine (un frame). Un bit in ritardo è un pixel sbagliato:
 // gli artefatti delle schede video overcloccate.
 import { makeRoute, createLayout, spineClock } from './route.js';
+import { t } from './i18n.js';
 
 export const LANES = 16, ROWS = 8;
 const STAGES = ['IS', ...Array.from({ length: LANES }, (_, i) => `L${i}`)];
 export const meta = {
-  id: 'gpu', name: 'GPU', short: 'GPU',
-  tag: '16 corsie con la stessa istruzione: si aspetta la più lenta.',
-  desc: 'Ogni colpo manda la stessa istruzione a 16 corsie, ognuna sul suo pixel: tocca quando è arrivata l\'ultima. Ogni riga finisce nel framebuffer e otto righe fanno un frame.',
-  howto: 'la stessa istruzione va a 16 corsie: tocca quando sono verdi tutte, anche la più lenta. Le righe di pixel compongono un\'immagine sul chip; un glitch lascia pixel sbagliati (artefatti).',
+  id: 'gpu', name: t('proc.gpu'), short: t('proc.gpu.short'),
+  tag: t('proc.gpu.tag'),
+  desc: t('proc.gpu.desc'),
+  howto: t('proc.gpu.howto'),
   stages: STAGES,
   glitchAt: 'LANES',                                                // un solo GLITCH! sopra le corsie, non sedici
   look: {
@@ -259,8 +260,8 @@ export function spots(C) {
 }
 
 export function results(x) {
-  const more = [[String(x.frames || 0), x.frames === 1 ? 'frame completo' : 'frame completi']];
-  more.push([String(x.artifacts || 0), 'pixel con artefatti']);
+  const more = [[String(x.frames || 0), t('proc.gpu.frames', { n: x.frames || 0 })]];
+  more.push([String(x.artifacts || 0), t('proc.gpu.artifacts')]);
   return { more };
 }
 
@@ -284,10 +285,10 @@ export function schedule(k, st, { missP }, res) {
 
   if (st.done) {                                                    // con lo STORE dell'ultima riga l'immagine è completa
     k.notice(st.done.bad
-      ? { type: 'bonus', pts: 100, text: 'FRAME CON ARTEFATTI', color: '#ff7aa0', stat: 'frames', sound: 'frame' }
+      ? { type: 'bonus', pts: 100, text: t('proc.gpu.badFrame'), color: '#ff7aa0', stat: 'frames', sound: 'frame' }
       : { type: 'bonus', pts: 300, text: 'FRAME!', color: '#5cf0d0', stat: 'frames', sound: 'frame' });
     if (st.done.bad) k.notice({ type: 'info', stat: 'artifacts', count: st.done.bad });
-    k.say(st.done.bad ? 'ARTEFATTI!' : 'FRAME!', st.done.bad ? '#ff7aa0' : '#5cf0d0', T(0), { x: 91, y: 19.6, h: 2.6 }, 1.2);
+    k.say(st.done.bad ? t('proc.gpu.badShort') : 'FRAME!', st.done.bad ? '#ff7aa0' : '#5cf0d0', T(0), { x: 91, y: 19.6, h: 2.6 }, 1.2);
   }
 
   // ---- lo scheduler preleva l'istruzione dopo (si sovrappone all'esecuzione) ----

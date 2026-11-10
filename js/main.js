@@ -14,6 +14,9 @@ import { MODES } from './modes.js';
 import { PROCS, DEFAULT, lastProc, rememberProc } from './procs.js';
 import { createMenu } from './menu.js';
 import * as api from './api.js';
+import { t, dec } from './i18n.js';
+import { newId } from './history.js';
+import './pwa.js';
 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -25,6 +28,7 @@ const COL = { text: '#e8ebff', dim: '#7f89c6', dark: '#2b3264', gold: '#ffd23a',
 
 const sfx = createSfx();
 const gl = $('gl'), ui = $('ui'), stage = $('scene');
+stage.setAttribute('aria-label', t('scene.aria'));
 const g = ui.getContext('2d');
 const pix = createPixelRenderer(gl, PAL);
 const camera = new THREE.PerspectiveCamera(26, 1, 5, 1500);
@@ -169,6 +173,7 @@ function summary() {
   // le voci tutte sue del processore (CPI, interrupt, immagini…), che non vanno al server
   const x = mod.results?.({ ...G.extra, edges: G.edges, cycles: G.cycles, worst: G.worst, span: G.span, retired: G.retired, ok: G.ok, played: G.played, battery: G.battery }) ?? {};
   return {
+    id: newId(), played: new Date().toISOString(),
     cpu: run.cpu, mode: run.mode, seed: run.seed, challenge: run.challenge, custom: run.custom, end: G.end, why: G.why,
     score: G.score, time_ms: Math.round(G.played * 1000), finished: G.end !== 'crash', crashed: G.end === 'crash',
     ok: G.ok, perfect: G.perfect, good: G.good, slow: G.slow, glitches: G.glitches, combo: G.bestCombo,
@@ -199,7 +204,7 @@ function clockEdge() {
   if (r.kind === 'sleep') {                                       // il processore dorme: il colpo non serve a niente
     G.combo = 0;
     G.extra.wasted = (G.extra.wasted || 0) + 1;
-    feedback(mod.meta.wasteText || 'A VUOTO', COL.orange);
+    feedback(mod.meta.wasteText || t('fb.waste'), COL.orange);
     sfx.waste();
     if (pw().kind === 'battery') drain(pw().waste);
     notices();
@@ -235,12 +240,12 @@ function clockEdge() {
   } else {
     G.peak = Math.max(G.peak, G.ghz);
     let pts;
-    if (r.dt < 0.1) { G.combo++; G.perfect++; pts = 100; feedback('PERFETTO!', COL.green); sfx.perfect(G.combo); }
-    else if (r.dt < 0.3) { G.combo++; G.good++; pts = 50; feedback('BUONO', COL.cyan); sfx.good(); }
-    else { G.combo = 0; G.slow++; pts = 10; feedback('LENTO', COL.dim); sfx.slow(); }
+    if (r.dt < 0.1) { G.combo++; G.perfect++; pts = 100; feedback(t('fb.perfect'), COL.green); sfx.perfect(G.combo); }
+    else if (r.dt < 0.3) { G.combo++; G.good++; pts = 50; feedback(t('fb.good'), COL.cyan); sfx.good(); }
+    else { G.combo = 0; G.slow++; pts = 10; feedback(t('fb.slow'), COL.dim); sfx.slow(); }
     G.bestCombo = Math.max(G.bestCombo, G.combo);
     G.score += pts * mult();
-    if (G.combo > 0 && G.combo % 20 === 0 && G.hearts < G.M.lives) { G.hearts++; sfx.heart(); feedback('+1 VITA', RED); }
+    if (G.combo > 0 && G.combo % 20 === 0 && G.hearts < G.M.lives) { G.hearts++; sfx.heart(); feedback(t('fb.life'), RED); }
   }
   if (G.M.target && G.ok >= G.M.target) gameOver('done');
 }
@@ -377,17 +382,16 @@ const narrow = () => lw < 330;
 const comboY = () => (narrow() ? 13 + 7 * big() + 5 : 4 + 7 * big() + 5);
 const fbY = () => comboY() + 12;
 
-const dec = (v, d) => v.toFixed(d).replace('.', ',');
 function topBar() {
   const s = big(), M = G.M;
-  if (M.target) { T('ISTRUZIONI', 5, 4, 1, COL.dim); T(`${G.ok}/${M.target}`, 5, 13, s, COL.text); }
-  else { T('PUNTI', 5, 4, 1, COL.dim); T(String(G.score).padStart(6, '0'), 5, 13, s, COL.text); }
+  if (M.target) { T(t('hud.instr'), 5, 4, 1, COL.dim); T(`${G.ok}/${M.target}`, 5, 13, s, COL.text); }
+  else { T(t('hud.score'), 5, 4, 1, COL.dim); T(String(G.score).padStart(6, '0'), 5, 13, s, COL.text); }
   if (Number.isFinite(M.lives)) for (let i = 0; i < M.lives; i++) T('*', 5 + i * 8, 13 + 7 * s + 5, 1, i < G.hearts ? RED : COL.dark);
   if (Number.isFinite(G.total)) {
-    T('TEMPO', lw - 5, 4, 1, COL.dim, 'r');
+    T(t('hud.time'), lw - 5, 4, 1, COL.dim, 'r');
     T(String(Math.ceil(G.left)), lw - 5, 13, s, G.left < 10 && blink(0.3, 0.2) ? RED : COL.text, 'r');
   } else if (!M.practice) {
-    T('TEMPO', lw - 5, 4, 1, COL.dim, 'r');
+    T(t('hud.time'), lw - 5, 4, 1, COL.dim, 'r');
     T(M.target ? dec(G.played, 1) : String(Math.floor(G.played)), lw - 5, 13, s, COL.text, 'r');
   } else T('ESC MENU', lw - 5, 4, 1, COL.dim, 'r');
   if (M.watchdog) T(`${narrow() ? 'WD' : 'WATCHDOG'} ${dec(G.wd, 2)}`, lw - 5, 13 + 7 * s + 5, 1, G.wd < 0.45 ? COL.orange : COL.dim, 'r');
@@ -400,7 +404,7 @@ function topBar() {
 function bottomBar() {
   const y = lh - 12;
   (pw().kind === 'battery' ? batteryBar : heatBar)(narrow() ? Math.round(lw / 2 - 45) : 5, narrow() && help() ? y - 20 : y);
-  if (sfx.muted && !narrow()) T('AUDIO NO', lw - 5, y, 1, COL.dim, 'r');
+  if (sfx.muted && !narrow()) T(t('hud.muted'), lw - 5, y, 1, COL.dim, 'r');
   mod.hud?.({ T, g, lw, lh, y, G, engine, clock, COL, narrow: narrow() });
   if (!help()) return;
   // solo con ?aiuto o in allenamento: spie degli stadi (grigio = vuoto, ambra = aspetta bit, verde = tutti arrivati)
@@ -430,7 +434,7 @@ function bottomBar() {
 
 // calore: la barra si riempie se corri troppo
 function heatBar(x, y) {
-  const w = T('CALORE', x, y, 1, COL.dim), bx = x + w + 3, bw = 50;
+  const w = T(t('hud.heat'), x, y, 1, COL.dim), bx = x + w + 3, bw = 50;
   g.fillStyle = '#05081a'; g.fillRect(bx, y + 1, bw + 2, 7);
   const n = Math.round(bw * G.heat);
   for (let i = 0; i < n; i++) {
@@ -441,7 +445,7 @@ function heatBar(x, y) {
 }
 // batteria: si svuota a ogni colpo, di più se corri; quando è quasi scarica il chip rallenta
 function batteryBar(x, y) {
-  const w = T('BATTERIA', x, y, 1, COL.dim), bx = x + w + 3, bw = 50;
+  const w = T(t('hud.battery'), x, y, 1, COL.dim), bx = x + w + 3, bw = 50;
   g.fillStyle = '#05081a'; g.fillRect(bx, y + 1, bw + 2, 7); g.fillRect(bx + bw + 2, y + 3, 2, 3);
   const n = Math.round(bw * G.battery), c = G.battery > 0.5 ? COL.green : G.battery > 0.25 ? '#ffd23a' : (blink(0.3, 0.2) ? '#ff3348' : '#7a1820');
   g.fillStyle = c; g.fillRect(bx + 1, y + 2, n, 5);
@@ -461,8 +465,8 @@ function hud() {
   }
   if (state === 'play') {
     if (clock - stateT < 0.6) {
-      const s = fitScale('VIA!', 6, 0.3);
-      drawText(g, 'VIA!', Math.round(lw / 2 - measure('VIA!', s) / 2), Math.round(lh / 2 - 7 * s / 2), s, COL.green, '#05081a', '#05081a');
+      const go = t('hud.go'), s = fitScale(go, 6, 0.3);
+      drawText(g, go, Math.round(lw / 2 - measure(go, s) / 2), Math.round(lh / 2 - 7 * s / 2), s, COL.green, '#05081a', '#05081a');
     }
     if (fb && real - fb.t < 0.5) {
       const s = big(), y = fbY() + (real - fb.t < 0.06 ? -1 : 0);
@@ -473,7 +477,7 @@ function hud() {
   if (state === 'over') {
     veil();
     if (shown) return;                                             // sopra c'è già la schermata dei risultati
-    const [head, color] = G.end === 'crash' ? [G.why === 'battery' ? 'BROWN-OUT!' : 'CRASH!', RED] : G.end === 'done' ? ['FINITO!', COL.green] : ['TEMPO SCADUTO', COL.orange];
+    const [head, color] = G.end === 'crash' ? [t(G.why === 'battery' ? 'res.brownout' : 'res.crash'), RED] : G.end === 'done' ? [t('res.done'), COL.green] : [t('res.time'), COL.orange];
     const ts = fitScale(head, 5, 0.8);
     drawText(g, head, Math.round(lw / 2 - measure(head, ts) / 2), Math.round(lh / 2 - 7 * ts / 2), ts, color, '#05081a', '#05081a');
   }

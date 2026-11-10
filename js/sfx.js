@@ -5,7 +5,10 @@ const SCALE = [523, 587, 659, 784, 880, 1047, 1175, 1319];         // pentatonic
 const PENTA2 = [392, 440, 523, 587, 659, 784, 880, 1047, 1175, 1319];
 
 export function createSfx() {
+  const KEY = 'overclock-muted';
   let ac = null, out = null, muted = false;
+  try { muted = localStorage.getItem(KEY) === '1'; } catch { /* audio acceso */ }
+  const remember = () => { try { localStorage.setItem(KEY, muted ? '1' : '0'); } catch { /* solo per questa volta */ } };
 
   const ensure = () => {
     if (!ac) {
@@ -47,7 +50,8 @@ export function createSfx() {
   return {
     ensure,
     get muted() { return muted; },
-    toggle() { muted = !muted; return muted; },
+    toggle() { muted = !muted; remember(); return muted; },
+    set(m) { muted = !!m; remember(); },
     tick: () => tone(110, 0.06, { slide: 0.5, vol: 0.18 }),       // il colpo di clock, come una cassa
     ui: () => tone(660, 0.035, { vol: 0.035 }),                    // i pulsanti del menu
     // uno stadio ha finito: IF, ID, EX, MEM, WB hanno ciascuno la sua nota; con tanti stadi (le corsie

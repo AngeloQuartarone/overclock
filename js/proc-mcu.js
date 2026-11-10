@@ -6,15 +6,16 @@
 // altro interrupt, la routine successiva parte subito (tail-chaining, come nei Cortex-M).
 // Il nucleo è una pipeline a 2 stadi, come negli AVR: mentre un'istruzione si esegue, la prossima si preleva.
 import { makeRoute, createLayout, spineClock } from './route.js';
+import { t } from './i18n.js';
 
 export const meta = {
-  id: 'mcu', name: 'Microcontrollore', short: 'MCU',
-  tag: 'Dorme finché non lo chiami: interrupt, scadenze e batteria.',
-  desc: 'Quando un piedino si accende (IRQ!) dai il clock alla sua routine prima che scada il tempo. Poi torna a dormire: non toccare, sprecheresti batteria.',
-  howto: 'dorme finché un piedino non manda un interrupt: allora dai il clock alla routine (la prima battuta preleva il vettore) e finiscila prima della scadenza. Dopo RETI non toccare: mentre dorme ogni colpo spreca batteria, e con la batteria scarica il chip rallenta fino al brown-out.',
+  id: 'mcu', name: t('proc.mcu'), short: t('proc.mcu.short'),
+  tag: t('proc.mcu.tag'),
+  desc: t('proc.mcu.desc'),
+  howto: t('proc.mcu.howto'),
   stages: ['IRQ', 'IF', 'EX', 'IO'],
   dim: 0.46,                                                        // addormentato il chip è quasi spento
-  wasteText: 'DORME!',
+  wasteText: t('proc.mcu.asleep'),
   look: {
     pkg: 'dip', pins: 14,
     pal: {
@@ -304,8 +305,8 @@ export function spots() {
 }
 
 export function results(x) {
-  const more = [[String(x.irqs || 0), 'interrupt serviti'], [String(x.overruns || 0), 'scadenze mancate (overrun)'],
-    [`${Math.round((x.battery ?? 1) * 100)}%`, 'batteria rimasta'], [String(x.wasted || 0), 'colpi a vuoto (dormiva)']];
+  const more = [[String(x.irqs || 0), t('proc.mcu.irqs')], [String(x.overruns || 0), t('proc.mcu.overruns')],
+    [`${Math.round((x.battery ?? 1) * 100)}%`, t('proc.mcu.battery')], [String(x.wasted || 0), t('proc.mcu.wasted')]];
   return { more };
 }
 
@@ -368,7 +369,7 @@ export function schedule(k, st, opts, res) {
   const T = t => k.rel('IR', t);
   if (st.done) {                                                    // RETI completata: la routine è servita
     const q = st.done;
-    k.notice(q.late ? { type: 'info', text: 'IRQ IN RITARDO', color: '#ff8a2a' } : { type: 'bonus', pts: 150, text: 'IRQ OK', color: '#7dff6a', stat: 'irqs' });
+    k.notice(q.late ? { type: 'info', text: t('proc.mcu.late'), color: '#ff8a2a' } : { type: 'bonus', pts: 150, text: 'IRQ OK', color: '#7dff6a', stat: 'irqs' });
   }
   const e = st.exec;
   if (st.fetch) fetchWork(k, T(0.02), st.fetch);
